@@ -1,10 +1,11 @@
 /*
- * This css file is part of jquery terminal
- *
- * Licensed under GNU LGPL Version 3 license
- * Copyright (c) 2011-2013 Jakub Jankiewicz <http://jcubic.pl>
- *
- */
+- ether.terminal.js v0.1
+- Terminal to Ethereum through Etherface
+- http://ether.fund/tool/terminal
+- (c) 2014 J.R. Bédard (jrbedard.com)
+- This css file is part of jquery terminal, Licensed under GNU LGPL Version 3 license, Copyright (c) 2011-2013 Jakub Jankiewicz <http://jcubic.pl>
+*/
+
 .terminal .terminal-output .format, .cmd .format,
 .cmd .prompt, .cmd .prompt div, .terminal .terminal-output div div{
     display: inline-block;
