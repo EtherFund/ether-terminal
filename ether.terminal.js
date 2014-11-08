@@ -121,6 +121,7 @@ function processCommand(command, term) {
 			term.echo("Etherface version 1.0");
 			term.echo("Ethereum protocol: version "+data.protocolVersion);
 			term.echo("Ethereum client: "+data.clientId);
+			term.echo("Connected on: "+data.time);
 			think(term, false);
 		});
 
@@ -179,6 +180,7 @@ function updateStatusTab(connected, status) {
 			eStatus.find('#ef').text(status.j);
 			eStatus.find('#ep').text(status.protocolVersion);
 			eStatus.find('#ec').text(status.clientId);
+			eStatus.find('#t').attr('title', status.time);
 			//eStatus.find('span').enable();
 		}
 		
