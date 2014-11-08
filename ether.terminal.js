@@ -5,50 +5,20 @@
 - (c) 2014 J.R. Bédard (jrbedard.com)
 */
 
-const COMMANDS = {
-	'bitcoin':{type:"btc", help:"Current Bitcoin price.", icon:"bitcoin", args:{'s':{'n':'source','o':''}},
-		ex:[],
-		error:"", res:function(d){}},
-	
-	'block':{type:"eth", help:"Get information from the Ethereum blockchain.", icon:"cube", args:{},
-		ex:[{a:'',c:'get latest block'},{a:'1',c:'get second block'}],
-		error:""},
-	
-	'contracts':{type:"ef", help:"Get Contracts from our Repository", icon:"files-o", args:{},
-		ex:[],
-		error:""},
-	
-	'contract':{type:"ef", help:"Get Contract from our Repository", icon:"file-text-o", args:{},
-		ex:[],
-		error:""},	
-		
-	'faucet':{type:"eth", help:"Get current block number on the Ethereum blockchain.", icon:"tint", args:{}, 
-		ex:[],
-		error:""},
-	
-	'status':{type:"ef", help:"Status of etherface and ethereum.", icon:"circle", args:{},
-		ex:[],
-		error:""},
-};
-
 
 var mode = 'socket'; // socket or rest
 var ef = new Etherface({key:ETHERFACE_KEY, app:'terminal', mode:mode}); // Etherface
 var hashcmd = null; // from hash
+var intId = null;
+
 
 
 $(function() {
 	
 	// CMDS TAB
-	$.each(COMMANDS, function(key, value) {
-		$("#commandList").append("<li><a class='cmd' href='#"+key+"'><span class='label label-default'>"+key+"</span></a></li>");
-	});
-	$("#commandList .cmd").click(function(e) {
-		e.preventDefault();
-		updateCommandTab($(this).text());
-	});
+	updateCommandsTab();
 	
-	// CMD TAB
+	// CMD from hash
 	var params = getHashParams(); // from hash
 	if(params && params.cmd) {
 		hashcmd = params.cmd;
@@ -59,43 +29,7 @@ $(function() {
 	$("#terminalLoader").hide();
 	$('#terminal').terminal(function(cmd, term) {
 		
-		cmd = cmd.toLowerCase();
-		if(cmd=='help' || cmd=='cmds') {
-			term.echo("Etherface Terminal Commands:");
-			term.echo("-----------------------------");
-			$.each(COMMANDS, function(key, value) {
-				term.echo(key+" : "+ value.help);
-			});
-			term.echo("-----------------------------");
-		
-		} else if(cmd=='status') {
-			ef.network('status', function(data) {
-				term.echo("Etherface version 1.0");
-				term.echo("Ethereum protocol: version "+data.protocolVersion);
-				term.echo("Ethereum client: "+data.clientId);
-			});
-		
-		} else if(cmd=='block') {
-			ef.network('block', function(data) {
-				term.echo("Latest Block: "+data);
-			});
-		
-		} else if(cmd=='contracts' || cmd=='contract') {
-			
-		
-		} else if(cmd=='faucet') {
-			
-			
-		} else if(cmd=='bitcoin' || cmd=='btc') {
-			ef.network('bitcoin', function(data) {
-				term.echo("Current BTC price: "+data);
-			});
-			
-		} else {
-			term.echo('unknown command');
-		}
-		
-		updateCommandTab(cmd);
+		processCommand(cmd, term); // PROCESS COMMAND
 		
 	},{
 		name: 'Ethereum Terminal',
@@ -103,32 +37,39 @@ $(function() {
 		prompt: 'Ξ ',
 		history: true,
 		clear: true,
+		exit: true,
+		processArguments:true,
 		
 		onInit: function(term) {
-			term.pause();
-			term.echo("Connecting to Etherface...", '');
+			term.echo("Connecting to Etherface...");
+			think(term, true);
 			
 			ef.connect({}, function() {
 				term.echo("Connected to Ethereum!");
-				ef.network('status', function(status) {
+				ef.send('status', function(status) {
 					updateStatusTab(true, status);
 					if(hashcmd) {
 						term.exec(hashcmd); // harmful?
 						hashcmd=null; // only once
 					}
-					term.resume();
+					think(term, false);
 				});
 				
 			}, function() {
-				term.echo("Disconnected from Etherface :(");
-				term.pause();
+				term.error("Disconnected from Etherface :(");
 				updateStatusTab(false);
+				think(term, true);
 				
 			}, function() {
-				term.echo("Connection failed: ");
-				term.pause();
+				term.error("Connection failed: ");
 				updateStatusTab(false);
+				think(term, true);
 			});
+		},
+		completion: function(term, string, fn) { // tab completion
+			var cmds = $.map(COMMANDS, function(element,index) {return index}); // array of cmds
+			cmds = $.merge(cmds, $.map(COMMANDS_ALIAS, function(element,index) {return index})).sort().reverse(); // concat array of aliases
+			return fn(cmds);
 		},
 		onCommandChange: function(cmd) {
 		},
@@ -140,11 +81,93 @@ $(function() {
 });
 
 
-function commandResult(term, cmd, data) {
+
+// Process Command
+function processCommand(command, term) {
+	var pcmd = $.terminal.parseCommand(command);
+	//console.log(pcmd);
+	var cmd = pcmd.name.toLowerCase(); // only command string
+	var args = pcmd.args; // arguments array
+	var rest = pcmd.rest; // arguments as string
 	
+	
+	if(cmd in COMMANDS_ALIAS) { // aliases lookup here
+		cmd = COMMANDS_ALIAS[cmd];
+	}
+	var com = null;
+	if(cmd in COMMANDS) {
+		com = COMMANDS[cmd];
+	} else {
+		term.echo('unknown command');
+		return;
+	}
+	think(term, true); // thinking..................
+
+
+	 // HELP
+	if(cmd=='help') {
+		term.echo("Etherface Terminal Commands:");
+		term.echo("-----------------------------");
+		$.each(COMMANDS, function(key, value) {
+			term.echo(key+" : "+ value.help);
+		});
+		term.echo("-----------------------------");
+		think(term, false);
+
+
+	// STATUS
+	} else if(cmd=='status') {
+		ef.send('status', function(data) {
+			term.echo("Etherface version 1.0");
+			term.echo("Ethereum protocol: version "+data.protocolVersion);
+			term.echo("Ethereum client: "+data.clientId);
+			think(term, false);
+		});
+
+	
+	// BLOCK
+	} else if(cmd=='block') {
+		ef.send('block', function(data) {
+			term.echo("Latest Block: "+data);
+			think(term, false);
+		});
+
+
+	// CONTRACTS
+	} else if(cmd=='contracts' || cmd=='contract') {
+		think(term, false);
+
+	
+	// FAUCET
+	} else if(cmd=='faucet') {
+		if(args.length<1) { term.echo("Usage: "+usageString(cmd)); }
+		think(term, false);
+	
+	
+	// BITCOIN
+	} else if(cmd=='bitcoin') {
+		// todo: args
+		
+		ef.send('bitcoin', function(data) {
+			term.echo("Current BTC price: "+data);
+			think(term, false);
+		});
+	
+	
+	// UNKNOWN
+	} else {
+		term.echo('unknown command'); // shouldn't get here.
+		think(term, false);
+	}
+
+	// update cmd tab
+	updateCommandTab(cmd);
 }
 
 
+
+
+//   T A B S 
 
 // Status Tab update
 function updateStatusTab(connected, status) {
@@ -167,6 +190,18 @@ function updateStatusTab(connected, status) {
 }
 
 
+// Commands tab
+function updateCommandsTab() {
+	$.each(COMMANDS, function(key, value) {
+		$("#commandList").append("<li><a class='cmd' href='#"+key+"'><span class='label label-default'>"+key+"</span></a></li>");
+	});
+	$("#commandList .cmd").click(function(e) {
+		e.preventDefault();
+		updateCommandTab($(this).text());
+	});
+}
+
+
 
 // Command Tab update
 function updateCommandTab(cmd) {
@@ -176,9 +211,7 @@ function updateCommandTab(cmd) {
 		$("#commandHelp").html("<i class='fa fa-"+com.icon+"' style='margin-right:2px;'></i>"+cmd);
 		
 		var cmdEl = $("#commandTabContent #command");
-		var cmdArgs = cmd;
-		// todo: arguments
-		cmdEl.html("<pre>"+cmdArgs+"</pre>"); // Cmd name + arguments
+		cmdEl.html("<pre>"+usageString(cmd)+"</pre>"); // Cmd name + arguments
 		cmdEl.append("<p>"+com.help+"</p>"); // Cmd Description
 		
 		// Cmd Examples
@@ -190,6 +223,19 @@ function updateCommandTab(cmd) {
 				examples += "<span style='color:#6c6;'>"+com.ex[i].c+"</span><br>";
 			}
 			cmdEl.append("<p><b style='padding-bottom:0px'>Examples:</b><pre>"+examples+"</pre></p>");
+		}
+		
+		// Cmd Aliases
+		var aliases=[];
+		$.each(COMMANDS_ALIAS, function(key,value) {
+  			if(value==cmd) { aliases.push(key); }
+		});
+		if(aliases.length > 0) {
+			var acmds = "";
+			for(var i=0; i<aliases.length; i++) {
+				acmds+="<span class='label label-default'>"+aliases[i]+"</span>";
+			}
+			cmdEl.append("<p><b>Alias:</b> "+acmds+"</p>");
 		}
 		
 		// share links
@@ -206,6 +252,42 @@ function updateCommandTab(cmd) {
 		}
 	}
 }
+
+
+// usage string : CMD + ARGS
+function usageString(cmd) {
+	var com = COMMANDS[cmd];
+	var usage = cmd+" ";
+	$.each(com.args, function(arg, val) {
+		usage += "-"+arg+" "+val.n;
+	});
+	return usage;
+}
+
+
+
+// terminal thinking...
+function think(term, on) {
+	if(on) { 
+		term.pause();
+		
+		//$('.terminal-output').append(" ");
+		//intId = setInterval(function() {
+		//	$('.terminal-output').append(".");
+		//}, 100);
+		
+	} else {
+		clearInterval(intId);
+		term.resume();
+	}
+}
+
+
+function commandResult(term, cmd, data) {
+	
+}
+
+
 
 
 
