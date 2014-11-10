@@ -46,7 +46,7 @@ $(function() {
 			
 			ef.connect({}, function() {
 				term.echo("Connected to Ethereum!");
-				ef.send('status', function(status) {
+				ef.send('status', {}, function(status) {
 					updateStatusTab(true, status);
 					if(hashcmd) {
 						term.exec(hashcmd); // harmful?
@@ -102,7 +102,10 @@ function processCommand(command, term) {
 		return;
 	}
 	think(term, true); // thinking..................
-
+	
+	// update cmd tab
+	updateCommandTab(cmd);
+	
 
 	 // HELP
 	if(cmd=='help') {
@@ -117,7 +120,7 @@ function processCommand(command, term) {
 
 	// STATUS
 	} else if(cmd=='status') {
-		ef.send('status', function(data) {
+		ef.send('status', {}, function(data) {
 			term.echo("Etherface version 1.0");
 			term.echo("Ethereum protocol: version "+data.protocolVersion);
 			term.echo("Ethereum client: "+data.clientId);
@@ -128,16 +131,25 @@ function processCommand(command, term) {
 	
 	// BLOCK
 	} else if(cmd=='block') {
-		ef.send('block', function(data) {
+		ef.send('block', {}, function(data) {
 			term.echo("Latest Block: "+data);
 			think(term, false);
 		});
 
 
 	// CONTRACTS
-	} else if(cmd=='contracts' || cmd=='contract') {
-		think(term, false);
-
+	} else if(cmd=='contract') {
+		// todo: args
+		if(args.length<1) { term.echo("Usage: "+usageString(cmd)); think(term, false); return; }
+		
+		ef.send('contract', {id:"967a1"}, function(sc) {
+			term.echo("Contract: "+sc.name);
+			term.echo("Language: "+sc.language);
+			term.echo("Privacy: "+sc.privacy);
+			term.echo("Code: ");
+			term.echo(sc.code);
+			think(term, false);
+		});
 	
 	// FAUCET
 	} else if(cmd=='faucet') {
@@ -145,24 +157,47 @@ function processCommand(command, term) {
 		think(term, false);
 	
 	
+	
+	
 	// BITCOIN
 	} else if(cmd=='bitcoin') {
-		// todo: args
-		
-		ef.send('bitcoin', function(data) {
-			term.echo("Current BTC price: "+data);
+		var val = (args.length>0 && !isNaN(args[0])) ? new BigNumber(args[0]) : new BigNumber(1);
+		ef.send('bitcoin', {}, function(btc) {
+			term.echo(val+" BTC = "+val.times(btc.to_usd)+" USD$ = "+val.times(btc.to_eth)+" ETH");
 			think(term, false);
 		});
 	
+	// ETHER
+	} else if(cmd=='ether') {
+		var val = (args.length>0 && !isNaN(args[0])) ? new BigNumber(args[0]) : new BigNumber(1);
+		ef.send('ether', {}, function(eth) {
+			term.echo(val+" ETH = "+val.times(eth.to_btc)+" BTC = "+val.times(eth.to_usd)+" USD$");
+			think(term, false);
+		});
 	
+	// CURRENCY
+	} else if(cmd=='currency') {
+		var sym = (args.length>0) ? args[0] : "USD";
+		var val = (args.length>1 && !isNaN(args[1])) ? new BigNumber(args[1]) : new BigNumber(1);
+		ef.send('currency', {cur:sym}, function(cur) {
+			if(cur.to_btc) {
+				term.echo(cur.name);
+				var line = val+" "+sym.toUpperCase();
+				if(sym == "USD") { line += '$'; } else { line += " = "+val.times(cur.to_usd)+" USD$"; }
+				term.echo(line+" = "+val.times(cur.to_btc)+" BTC = "+val.times(cur.to_eth)+" ETH");
+			} else {
+				term.echo("invalid currency");
+			}
+			think(term, false);
+		});
+		
+		
 	// UNKNOWN
 	} else {
 		term.echo('unknown command'); // shouldn't get here.
 		think(term, false);
 	}
 
-	// update cmd tab
-	updateCommandTab(cmd);
 }
 
 
@@ -216,29 +251,34 @@ function updateCommandTab(cmd) {
 		cmdEl.html("<pre>"+usageString(cmd)+"</pre>"); // Cmd name + arguments
 		cmdEl.append("<p>"+com.help+"</p>"); // Cmd Description
 		
-		// Cmd Examples
-		if(com.ex && com.ex.length > 0) {
-			var examples='';
-			for(var i=0; i<com.ex.length; i++) {
-				examples += cmd + " ";
-				if(com.ex[i].a) { examples += com.ex[i].a + " "; }
-				examples += "<span style='color:#6c6;'>"+com.ex[i].c+"</span><br>";
-			}
-			cmdEl.append("<p><b style='padding-bottom:0px'>Examples:</b><pre>"+examples+"</pre></p>");
-		}
-		
-		// Cmd Aliases
+		// Cmd Alias
 		var aliases=[];
+		var alias=null //first alias
 		$.each(COMMANDS_ALIAS, function(key,value) {
   			if(value==cmd) { aliases.push(key); }
 		});
 		if(aliases.length > 0) {
 			var acmds = "";
+			alias = aliases[0]; // first alias
 			for(var i=0; i<aliases.length; i++) {
-				acmds+="<span class='label label-default'>"+aliases[i]+"</span>";
+				acmds+="<kbd>"+aliases[i]+"</kbd>";
 			}
-			cmdEl.append("<p><b>Alias:</b> "+acmds+"</p>");
+			cmdEl.append("<span><b>Alias:</b> "+acmds+"</span>");
 		}
+		
+		
+		// Cmd Examples
+		if(com.ex && com.ex.length > 0) {
+			var examples='';
+			for(var i=0; i<com.ex.length; i++) {
+				if(alias) { examples += alias+" "; } else { examples += cmd+" "; }
+				if(com.ex[i].a) { examples += com.ex[i].a + " "; }
+				examples += "<span style='color:#6c6;'>("+com.ex[i].c+")</span><br>";
+			}
+			cmdEl.append("<b> Examples:</b><div style='margin-top:5px'><pre>"+examples+"</pre></div>");
+		}
+		
+		
 		
 		// share links
 		cmdEl.append("<div style='text-align:right;'><a class='shareLink' href='/tool/terminal#cmd="+cmd+"'><i class='fa fa-fw fa-link'></i>share command</a></div>");
@@ -260,8 +300,8 @@ function updateCommandTab(cmd) {
 function usageString(cmd) {
 	var com = COMMANDS[cmd];
 	var usage = cmd+" ";
-	$.each(com.args, function(arg, val) {
-		usage += "-"+arg+" "+val.n;
+	$.each(com.args, function(i,arg) {
+		usage += "["+arg.n+"] ";
 	});
 	return usage;
 }
