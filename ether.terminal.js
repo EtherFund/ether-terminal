@@ -106,13 +106,12 @@ function processCommand(command, term) {
 	// update cmd tab
 	updateCommandTab(cmd);
 	
-
 	 // HELP
 	if(cmd=='help') {
 		term.echo("Etherface Terminal Commands:");
 		term.echo("-----------------------------");
 		$.each(COMMANDS, function(key, value) {
-			term.echo(key+" : "+ value.help);
+			term.echo(tt(key,'cmd')+" : "+ value.desc, {raw:true});
 		});
 		term.echo("-----------------------------");
 		think(term, false);
@@ -139,8 +138,7 @@ function processCommand(command, term) {
 
 	// CONTRACTS
 	} else if(cmd=='contract') {
-		// todo: args
-		if(args.length<1) { term.echo("Usage: "+usageString(cmd)); think(term, false); return; }
+		if(args.length<1) { usageEcho(term, cmd); return; }
 		
 		ef.send('contract', {id:"967a1"}, function(sc) {
 			term.echo("Contract: "+sc.name);
@@ -151,19 +149,33 @@ function processCommand(command, term) {
 			think(term, false);
 		});
 	
-	// FAUCET
-	} else if(cmd=='faucet') {
-		if(args.length<1) { term.echo("Usage: "+usageString(cmd)); }
+	
+	// TRANSACTION
+	
+	
+	// MESSAGE
+	} else if(cmd=='message') {
+		if(args.length<1) { usageEcho(term, cmd); }
+		var on = (args[0]=='on') ? true : false;
+		term.echo("Listen to Ethereum messages: <span style='color:#1f1;'>"+on+"</span>", {raw:true});
 		think(term, false);
 	
 	
+	// WHISPER
+	
+	
+	// FAUCET
+	} else if(cmd=='faucet') {
+		if(args.length<1) { usageEcho(term, cmd); }
+		term.echo('Coming soon!')
+		think(term, false);
 	
 	
 	// BITCOIN
 	} else if(cmd=='bitcoin') {
 		var val = (args.length>0 && !isNaN(args[0])) ? new BigNumber(args[0]) : new BigNumber(1);
 		ef.send('bitcoin', {}, function(btc) {
-			term.echo(val+" BTC = "+val.times(btc.to_usd)+" USD$ = "+val.times(btc.to_eth)+" ETH");
+			term.echo(numS(val)+" BTC = "+numS(val.times(btc.to_usd))+" USD$ = "+numS(val.times(btc.to_eth))+" ETH", {raw:true});
 			think(term, false);
 		});
 	
@@ -171,7 +183,7 @@ function processCommand(command, term) {
 	} else if(cmd=='ether') {
 		var val = (args.length>0 && !isNaN(args[0])) ? new BigNumber(args[0]) : new BigNumber(1);
 		ef.send('ether', {}, function(eth) {
-			term.echo(val+" ETH = "+val.times(eth.to_btc)+" BTC = "+val.times(eth.to_usd)+" USD$");
+			term.echo(numS(val)+" ETH = "+numS(val.times(eth.to_btc))+" BTC = "+numS(val.times(eth.to_usd))+" USD$", {raw:true});
 			think(term, false);
 		});
 	
@@ -182,9 +194,9 @@ function processCommand(command, term) {
 		ef.send('currency', {cur:sym}, function(cur) {
 			if(cur.to_btc) {
 				term.echo(cur.name);
-				var line = val+" "+sym.toUpperCase();
-				if(sym == "USD") { line += '$'; } else { line += " = "+val.times(cur.to_usd)+" USD$"; }
-				term.echo(line+" = "+val.times(cur.to_btc)+" BTC = "+val.times(cur.to_eth)+" ETH");
+				var line = numS(val)+" "+sym.toUpperCase();
+				if(sym == "USD") { line += '$'; } else { line += " = "+numS(val.times(cur.to_usd))+" USD$"; }
+				term.echo(line+" = "+numS(val.times(cur.to_btc))+" BTC = "+numS(val.times(cur.to_eth))+" ETH", {raw:true});
 			} else {
 				term.echo("invalid currency");
 			}
@@ -248,8 +260,8 @@ function updateCommandTab(cmd) {
 		$("#commandHelp").html("<i class='fa fa-"+com.icon+"' style='margin-right:2px;'></i>"+cmd);
 		
 		var cmdEl = $("#commandTabContent #command");
-		cmdEl.html("<pre>"+usageString(cmd)+"</pre>"); // Cmd name + arguments
-		cmdEl.append("<p>"+com.help+"</p>"); // Cmd Description
+		cmdEl.html("<pre>"+usageString(cmd,false)+"</pre>"); // Cmd name + arguments
+		cmdEl.append("<p>"+com.desc+"</p>"); // Cmd Description
 		
 		// Cmd Alias
 		var aliases=[];
@@ -279,7 +291,6 @@ function updateCommandTab(cmd) {
 		}
 		
 		
-		
 		// share links
 		cmdEl.append("<div style='text-align:right;'><a class='shareLink' href='/tool/terminal#cmd="+cmd+"'><i class='fa fa-fw fa-link'></i>share command</a></div>");
 		cmdEl.append("<div style='text-align:right;'><a class='shareLink' href='/tool/terminal#cmd="+cmd+"'><i class='fa fa-fw fa-terminal'></i>share input</a></div>");
@@ -296,15 +307,39 @@ function updateCommandTab(cmd) {
 }
 
 
+
+
+
+const TT = { // terminal theme
+	'cmd':"88f",
+	'on':"",
+	'off':"",
+	'arg':'',
+	'num':'f88',
+	'msg':'',
+};
+function tt(text,c) {
+	return "<span style='color:#"+TT[c]+"'>"+text+"</span>";
+}
+
 // usage string : CMD + ARGS
-function usageString(cmd) {
+function usageString(cmd, style) {
 	var com = COMMANDS[cmd];
-	var usage = cmd+" ";
+	var usage = cmd;
+	if(style) { usage = tt(cmd,'cmd'); }
+	usage+=" ";
 	$.each(com.args, function(i,arg) {
 		usage += "["+arg.n+"] ";
 	});
 	return usage;
 }
+function usageEcho(term, cmd) {
+	term.echo("Usage: "+usageString(cmd,true), {raw:true}); think(term, false); return;
+}
+function numS(num) {
+	return "<span style='color:#"+TT.num+"'>"+num+"</span>";
+}
+
 
 
 
