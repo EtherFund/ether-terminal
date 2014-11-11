@@ -6,11 +6,10 @@
 */
 
 
-var mode = 'socket'; // socket or rest
+var mode = 'websocket'; // websocket, polling, post, etc
 var ef = new Etherface({key:ETHERFACE_KEY, app:'terminal', mode:mode}); // Etherface
 var hashcmd = null; // from hash
 var intId = null;
-
 
 
 $(function() {
@@ -45,7 +44,7 @@ $(function() {
 			think(term, true);
 			
 			ef.connect({}, function() {
-				term.echo("Connected to Ethereum!");
+				term.echo(tt("Connected to Ethereum!",'status'),{raw:true});
 				ef.send('status', {}, function(status) {
 					updateStatusTab(true, status);
 					if(hashcmd) {
@@ -120,10 +119,12 @@ function processCommand(command, term) {
 	// STATUS
 	} else if(cmd=='status') {
 		ef.send('status', {}, function(data) {
-			term.echo("Etherface version 1.0");
-			term.echo("Ethereum protocol: version "+data.protocolVersion);
-			term.echo("Ethereum client: "+data.clientId);
-			term.echo("Connected on: "+data.time);
+			term.echo("Etherface version: "+tt(ef.version,'status'),{raw:true});
+			term.echo("Ethereum protocol: "+tt("version "+data.protocolVersion,'status'),{raw:true});
+			term.echo("Ethereum client: "+tt(data.clientId,'status'),{raw:true});
+			term.echo("Bitcoin API: "+tt('coinbase v1','status'),{raw:true});
+			term.echo("Connection type: "+tt(ef.type,'status'),{raw:true});
+			term.echo("Connected on: "+tt(data.time,'status'),{raw:true});
 			think(term, false);
 		});
 
@@ -139,30 +140,43 @@ function processCommand(command, term) {
 	// CONTRACTS
 	} else if(cmd=='contract') {
 		if(args.length<1) { usageEcho(term, cmd); return; }
-		
-		ef.send('contract', {id:"967a1"}, function(sc) {
+		var cid = args[0];
+		ef.send('contract', {id:cid}, function(sc) {
+			if(!sc) { term.echo("Contract not found in repo."); think(term, false); return; }
 			term.echo("Contract: "+sc.name);
 			term.echo("Language: "+sc.language);
 			term.echo("Privacy: "+sc.privacy);
 			term.echo("Code: ");
-			term.echo(sc.code);
+			term.echo(sc.code, {raw:false});
 			think(term, false);
 		});
 	
 	
 	// TRANSACTION
+	} else if(cmd=='transaction') {
+		term.echo("Coming soon");
+		think(term, false);
 	
+	
+	// ACCOUNT
+	} else if(cmd=='account') {
+		term.echo("Coming soon");
+		think(term, false);
+		
 	
 	// MESSAGE
 	} else if(cmd=='message') {
 		if(args.length<1) { usageEcho(term, cmd); }
-		var on = (args[0]=='on') ? true : false;
-		term.echo("Listen to Ethereum messages: <span style='color:#1f1;'>"+on+"</span>", {raw:true});
+		var on = (args[0]=='on') ? "on" : "off";
+		term.echo("Listen to Ethereum messages: "+tt(on,on), {raw:true});
 		think(term, false);
 	
 	
 	// WHISPER
-	
+	} else if(cmd=='whisper') {
+		term.echo("Coming soon");
+		think(term, false);
+		
 	
 	// FAUCET
 	} else if(cmd=='faucet') {
@@ -195,7 +209,7 @@ function processCommand(command, term) {
 			if(cur.to_btc) {
 				term.echo(cur.name);
 				var line = numS(val)+" "+sym.toUpperCase();
-				if(sym == "USD") { line += '$'; } else { line += " = "+numS(val.times(cur.to_usd))+" USD$"; }
+				line += (sym == "USD") ?  '$' : " = "+numS(val.times(cur.to_usd))+" USD$";
 				term.echo(line+" = "+numS(val.times(cur.to_btc))+" BTC = "+numS(val.times(cur.to_eth))+" ETH", {raw:true});
 			} else {
 				term.echo("invalid currency");
@@ -224,10 +238,14 @@ function updateStatusTab(connected, status) {
 		$("#statusIcon").attr('style', "color:#5d5;");
 		$("#statusText").text("Online");
 		if(status) { // update Status Panel
-			eStatus.find('#ef').text(status.j);
-			eStatus.find('#ep').text(status.protocolVersion);
+			eStatus.find('#ef').text("version "+ef.version);
+			eStatus.find('#ep').text("version "+status.protocolVersion);
 			eStatus.find('#ec').text(status.clientId);
+			eStatus.find("#btc").text('coinbase v1');
+			eStatus.find('#ct').text(ef.type);
 			eStatus.find('#t').attr('title', status.time);
+			eStatus.find('#t').text(status.time);
+			$("#t").timeago();
 			//eStatus.find('span').enable();
 		}
 		
@@ -263,6 +281,7 @@ function updateCommandTab(cmd) {
 		cmdEl.html("<pre>"+usageString(cmd,false)+"</pre>"); // Cmd name + arguments
 		cmdEl.append("<p>"+com.desc+"</p>"); // Cmd Description
 		
+		
 		// Cmd Alias
 		var aliases=[];
 		var alias=null //first alias
@@ -283,9 +302,9 @@ function updateCommandTab(cmd) {
 		if(com.ex && com.ex.length > 0) {
 			var examples='';
 			for(var i=0; i<com.ex.length; i++) {
-				if(alias) { examples += alias+" "; } else { examples += cmd+" "; }
-				if(com.ex[i].a) { examples += com.ex[i].a + " "; }
-				examples += "<span style='color:#6c6;'>("+com.ex[i].c+")</span><br>";
+				examples += (alias ? alias : cmd)+" ";
+				examples += (com.ex[i].a ? com.ex[i].a+" " : "");
+				examples += "<span style='color:#6c6;'><i># "+com.ex[i].c+"</i></span><br>";
 			}
 			cmdEl.append("<b> Examples:</b><div style='margin-top:5px'><pre>"+examples+"</pre></div>");
 		}
@@ -311,23 +330,26 @@ function updateCommandTab(cmd) {
 
 
 const TT = { // terminal theme
-	'cmd':"88f",
-	'on':"",
-	'off':"",
+	'cmd':"69e",
+	'on':"8f8",
+	'off':"f88",
+	'num':'af8',
+	'status':'6e9',
+	'code':'ee3',
 	'arg':'',
-	'num':'f88',
 	'msg':'',
 };
 function tt(text,c) {
 	return "<span style='color:#"+TT[c]+"'>"+text+"</span>";
 }
+function numS(num) {
+	return tt(num,'num');
+}
 
 // usage string : CMD + ARGS
 function usageString(cmd, style) {
 	var com = COMMANDS[cmd];
-	var usage = cmd;
-	if(style) { usage = tt(cmd,'cmd'); }
-	usage+=" ";
+	var usage = (style ? tt(cmd,'cmd') : cmd)+" ";
 	$.each(com.args, function(i,arg) {
 		usage += "["+arg.n+"] ";
 	});
@@ -336,14 +358,9 @@ function usageString(cmd, style) {
 function usageEcho(term, cmd) {
 	term.echo("Usage: "+usageString(cmd,true), {raw:true}); think(term, false); return;
 }
-function numS(num) {
-	return "<span style='color:#"+TT.num+"'>"+num+"</span>";
-}
 
 
-
-
-// terminal thinking...
+// terminal thinking..., should be fast enough to avoid this..
 function think(term, on) {
 	if(on) { 
 		term.pause();
@@ -354,14 +371,9 @@ function think(term, on) {
 		//}, 100);
 		
 	} else {
-		clearInterval(intId);
+		//clearInterval(intId);
 		term.resume();
 	}
-}
-
-
-function commandResult(term, cmd, data) {
-	
 }
 
 
