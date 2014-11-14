@@ -44,7 +44,7 @@ $(function() {
 			think(term, true);
 			
 			ef.connect({}, function() {
-				term.echo(tt("Connected to Ethereum!",'status'),{raw:true});
+				term.echo("Connected to Ethereum!",{raw:true});
 				ef.send('status', {}, function(status) {
 					updateStatusTab(true, status);
 					if(hashcmd) {
