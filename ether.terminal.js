@@ -162,8 +162,21 @@ function processCommand(command, term) {
 	} else if(cmd=='account') {
 		term.echo("Coming soon");
 		think(term, false);
-		
 	
+	
+	// PEERS
+	} else if(cmd=='peers') {
+		ef.send('peers', {}, function(peers) {
+			if(!peers || !peers.length) { term.echo("No peers"); think(term,false); return; }
+			//console.log(peers);
+			for(var p=0; p<peers.length; p++) {
+				var peer = peers[p];
+				term.echo(tt("Peer "+p,'peer')+': '+peer.publicIp+':'+peer.port+' ',{raw:true});
+			}
+			think(term, false);
+		});
+		
+		
 	// MESSAGE
 	} else if(cmd=='message') {
 		if(args.length<1) { usageEcho(term, cmd); }
@@ -336,6 +349,7 @@ const TT = { // terminal theme
 	'num':'af8',
 	'status':'6e9',
 	'code':'ee3',
+	'peer':'dd0',
 	'arg':'',
 	'msg':'',
 };
