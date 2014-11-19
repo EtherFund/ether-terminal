@@ -163,6 +163,10 @@ function processCommand(command, term) {
 		term.echo("Coming soon");
 		think(term, false);
 	
+	// LOG
+	} else if(cmd=='log') {
+		term.echo("Coming soon");
+		think(term, false);
 	
 	// PEERS
 	} else if(cmd=='peers') {
