@@ -119,7 +119,9 @@ function processCommand(command, term) {
 	// STATUS
 	} else if(cmd=='status') {
 		ef.send('status', {}, function(data) {
+			term.echo("Etherface hostname: "+tt(data.hostname+' ('+data.publicIp+')','status'),{raw:true});
 			term.echo("Etherface version: "+tt(ef.version,'status'),{raw:true});
+			term.echo("Etherface location: "+tt(getGeoStr(data),'status'),{raw:true});
 			term.echo("Ethereum protocol: "+tt("version "+data.protocolVersion,'status'),{raw:true});
 			term.echo("Ethereum client: "+tt(data.clientId,'status'),{raw:true});
 			term.echo("Bitcoin API: "+tt('coinbase v1','status'),{raw:true});
@@ -168,14 +170,44 @@ function processCommand(command, term) {
 		term.echo("Coming soon");
 		think(term, false);
 	
+	
 	// PEERS
 	} else if(cmd=='peers') {
-		ef.send('peers', {}, function(peers) {
+		var pid = args[0];
+		ef.send('peers', {id:pid}, function(peers) {
 			if(!peers || !peers.length) { term.echo("No peers"); think(term,false); return; }
+			if(pid!=null && (isNaN(pid) || pid<0 || pid>=peers.length)) { term.echo("Invalid peer Index"); think(term,false); return; }
+			
+			if(pid!=null && pid >= 0 && pid < peers.length) { // Peer Info
+				var peer = peers[pid];
+				var line = tt("Peer "+pid,'peer')+': '+peer.ip+':'+peer.port+' ('+getGeoStr(peer)+') ';
+				line += (peer.clientId ? peer.clientId : "");
+				line += (peer.id ? peer.id : "");
+				term.echo(line, {raw:true});
+				
+			} else {
+				for(var p=0; p<peers.length; p++) { // All Peers
+					var peer = peers[p];
+					var line = tt("Peer "+p,'peer')+': '+peer.ip+':'+peer.port+' ('+getGeoStr(peer)+')';
+					term.echo(line, {raw:true});
+				}
+			}
+			think(term, false);
+		});
+	
+	
+	// API
+	} else if(cmd=='api') {
+		ef.send('api', {}, function(cats) {
+			if(!cats || !cats.length) { term.echo("No api methods"); think(term,false); return; }
 			//console.log(peers);
-			for(var p=0; p<peers.length; p++) {
-				var peer = peers[p];
-				term.echo(tt("Peer "+p,'peer')+': '+peer.publicIp+':'+peer.port+' ',{raw:true});
+			for(var c=0; c<cats.length; c++) { // each endpoint category
+				var cat = cats[c];
+				for(var m=0; m<cat.routes.length; m++) { // each method
+					var route = cat.routes[m];
+					var line = tt(route.method+' '+route.url,'peer') + " " +route.desc;
+					term.echo(line, {raw:true});
+				}
 			}
 			think(term, false);
 		});
@@ -330,6 +362,16 @@ function updateCommandTab(cmd) {
 		// share links
 		cmdEl.append("<div style='text-align:right;'><a class='shareLink' href='/tool/terminal#cmd="+cmd+"'><i class='fa fa-fw fa-link'></i>share command</a></div>");
 		cmdEl.append("<div style='text-align:right;'><a class='shareLink' href='/tool/terminal#cmd="+cmd+"'><i class='fa fa-fw fa-terminal'></i>share input</a></div>");
+		
+		// Etherface API Link
+		if(com.api) {
+			cmdEl.append("<div style='text-align:right;'><a target='_blank' href='http://api.ether.fund/#"+com.api+"'><i class='fa fa-fw fa-plug'></i>Etherface "+com.api+" API</a></div>");
+		}
+		// Tool Link
+		if(com.tool) {
+			cmdEl.append("<div style='text-align:right;'><a target='_blank' href='/tool/"+com.tool+"'><i class='fa fa-fw fa-"+com.icon+"'></i>"+com.api+" Tool</a></div>");
+		}
+		
 		
 		// Select TAB
 		if(cmd=='status') {
