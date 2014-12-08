@@ -131,7 +131,7 @@ function processCommand(command, term) {
 		});
 
 	
-	// BLOCK
+	// BLOCKS
 	} else if(cmd=='block') {
 		ef.send('block', {}, function(data) {
 			term.echo("Latest Block: "+data);
@@ -154,13 +154,13 @@ function processCommand(command, term) {
 		});
 	
 	
-	// TRANSACTION
+	// TRANSACTIONS
 	} else if(cmd=='transaction') {
 		term.echo("Coming soon");
 		think(term, false);
 	
 	
-	// ACCOUNT
+	// ACCOUNTS
 	} else if(cmd=='account') {
 		term.echo("Coming soon");
 		think(term, false);
@@ -170,6 +170,10 @@ function processCommand(command, term) {
 		term.echo("Coming soon");
 		think(term, false);
 	
+	// LOG
+	} else if(cmd=='dapps') {
+		term.echo("Coming soon");
+		think(term, false);
 	
 	// PEERS
 	} else if(cmd=='peers') {
@@ -178,15 +182,15 @@ function processCommand(command, term) {
 			if(!peers || !peers.length) { term.echo("No peers"); think(term,false); return; }
 			if(pid!=null && (isNaN(pid) || pid<0 || pid>=peers.length)) { term.echo("Invalid peer Index"); think(term,false); return; }
 			
-			if(pid!=null && pid >= 0 && pid < peers.length) { // Peer Info
+			if(pid!=null && pid >= 0 && pid < peers.length) { // ONE Peer Info
 				var peer = peers[pid];
-				var line = tt("Peer "+pid,'peer')+': '+peer.ip+':'+peer.port+' ('+getGeoStr(peer)+') ';
-				line += (peer.clientId ? peer.clientId : "");
-				line += (peer.id ? peer.id : "");
+				var line = tt("Peer "+pid,'peer')+': '+peer.ip+':'+peer.port+' ('+getGeoStr(peer)+')<br>';
+				line += (peer.clientId ? 'clientId: '+peer.clientId+'<br>' : "");
+				line += (peer.id ? 'id: '+peer.id+'<br>' : "");
 				term.echo(line, {raw:true});
 				
 			} else {
-				for(var p=0; p<peers.length; p++) { // All Peers
+				for(var p=0; p<peers.length; p++) { // ALL Peers
 					var peer = peers[p];
 					var line = tt("Peer "+p,'peer')+': '+peer.ip+':'+peer.port+' ('+getGeoStr(peer)+')';
 					term.echo(line, {raw:true});
@@ -346,7 +350,6 @@ function updateCommandTab(cmd) {
 			cmdEl.append("<span><b>Alias:</b> "+acmds+"</span>");
 		}
 		
-		
 		// Cmd Examples
 		if(com.ex && com.ex.length > 0) {
 			var examples='';
@@ -357,7 +360,6 @@ function updateCommandTab(cmd) {
 			}
 			cmdEl.append("<b> Examples:</b><div style='margin-top:5px'><pre>"+examples+"</pre></div>");
 		}
-		
 		
 		// share links
 		cmdEl.append("<div style='text-align:right;'><a class='shareLink' href='/tool/terminal#cmd="+cmd+"'><i class='fa fa-fw fa-link'></i>share command</a></div>");
